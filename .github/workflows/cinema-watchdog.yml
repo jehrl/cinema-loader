@@ -1,8 +1,6 @@
 name: Cinema City watchdog
 
 on:
-  schedule:
-    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -64,19 +62,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/watch-state.json
           git commit -m "chore: remember notified Cinema City sessions"
-          git push
-
-      - name: Keep scheduled workflow enabled
-        if: success() && github.event_name == 'schedule'
-        run: |
-          now=$(date +%s)
-          last_commit=$(git log -1 --format=%ct)
-          if (( now - last_commit < 2592000 )); then
-            exit 0
-          fi
-          date -u +%Y-%m-%dT%H:%M:%SZ > .github/watchdog-keepalive
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/watchdog-keepalive
-          git commit -m "chore: keep Cinema watchdog schedule active"
           git push

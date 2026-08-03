@@ -77,10 +77,10 @@ npm start
 
 ## GitHub Actions
 
-The workflow in `.github/workflows/cinema-watchdog.yml` runs the check every
-15 minutes at minutes 07, 22, 37, and 52 to avoid GitHub's busiest scheduling
-window. Matching sessions are sent to the ntfy topic stored in the repository
-secret `NTFY_TOPIC`.
+The workflow in `.github/workflows/cinema-watchdog.yml` is started through its
+`workflow_dispatch` endpoint by cron-job.org every 15 minutes. Matching
+sessions are sent to the ntfy topic stored in the repository secret
+`NTFY_TOPIC`. See `CRON-JOB-SETUP.md` for the exact cron-job.org settings.
 
 The workflow commits `app/watch-state.json` only after a successful
 notification, so the same sessions are not announced again on later runs.
