@@ -1,20 +1,17 @@
-//copy to config.json
 [
   {
-    "url": "http://cinemacity.cz/scheduleInfo?locationId=1010105&date=19/05/2016&venueTypeId=2&hideSite=0&newwin=1",
+    "id": "odyssea-flora-imax-70mm-after-2026-08-24",
+    "url": "https://www.cinemacity.cz/cz/data-api-service/v1/quickbook/10101/film-events/in-cinema/1052/at-date/YYYY-MM-DD?attr=&lang=cs_CZ",
+    "startDate": "2026-08-25",
+    "endDate": "2026-08-31",
+    "filmId": "7268s2r",
+    "requiredAttributeIds": ["70-mm"],
     "pushbulletApiKey": "NONE",
-    "cinemaLink": "http://cinemacity.cz/scheduleInfo?locationId=1010105&date=19/05/2016&venueTypeId=2&hideSite=0&newwin=1",
+    "cinemaLink": "https://www.cinemacity.cz/films/odyssea/7268s2r#/",
+    "notificationTitle": "Odyssea IMAX 70mm – nové termíny",
     "refreshInterval": 60,
     "pingInterval": 3600,
-    "text": "CinemaCity",
+    "exitAfterNotification": false,
     "type": "cinemaCity"
-  },
-  {
-    "url": "http://cinestar.cz/cz/?option=com_csevents&view=eventsforday&date=2016-05-19&cinema=11&titleId=0&format=raw&tpl=program",
-    "pushbulletApiKey": "NONE",
-    "cinemaLink": "http://cinestar.cz/cz/?option=com_csevents&view=eventsforday&date=2016-05-19&cinema=11&titleId=0&format=raw&tpl=program",
-    "refreshInterval": 60,
-    "text": "CineStar",
-    "type": "cineStar"
   }
 ]

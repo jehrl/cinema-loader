@@ -1,0 +1,52 @@
+name: Cinema City watchdog
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: cinema-city-odyssea-watchdog
+  cancel-in-progress: false
+
+jobs:
+  check-cinema-city:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for new IMAX 70mm sessions
+        env:
+          RUN_ONCE: "1"
+          WATCH_STATE_PATH: app/watch-state.json
+          PUSHBULLET_API_KEY: ${{ secrets.PUSHBULLET_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_ASSIGNEE: jehrl
+        run: node app/index.js
+
+      - name: Persist notified sessions
+        run: |
+          if git diff --quiet -- app/watch-state.json; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/watch-state.json
+          git commit -m "chore: remember notified Cinema City sessions"
+          git push

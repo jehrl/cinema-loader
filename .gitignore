@@ -1,2 +1,5 @@
 node_modules
 app/config.json
+app/.watch-state.json
+watchdog.log
+watchdog.error.log
