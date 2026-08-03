@@ -1,7 +1,5 @@
 const fs = require('fs')
 const path = require('path')
-const { execFile } = require('child_process')
-const PushBullet = require('pushbullet')
 
 const configPath = fs.existsSync(path.join(__dirname, 'config.json'))
   ? './config.json'
@@ -54,15 +52,27 @@ const urlsFor = config => {
 }
 
 const downloadJson = async url => {
-  const response = await fetch(url, {
-    headers: { 'user-agent': 'cinema-loader/0.2 (+https://github.com/ra100/cinema-loader)' }
-  })
+  let lastError
 
-  if (!response.ok) {
-    throw new Error(`Cinema City returned HTTP ${response.status}`)
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers: { 'user-agent': 'cinema-loader/0.2 (+https://github.com/ra100/cinema-loader)' },
+        signal: AbortSignal.timeout(15000)
+      })
+
+      if (!response.ok) {
+        throw new Error(`Cinema City returned HTTP ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      lastError = error
+      if (attempt < 3) await delay(attempt * 2000)
+    }
   }
 
-  return response.json()
+  throw lastError
 }
 
 const matches = (config, event) => {
@@ -105,57 +115,37 @@ const eventDescription = event => {
   return `${date} ${time}`
 }
 
-const localNotification = (title, message) =>
-  new Promise((resolve, reject) => {
-    const script = `display notification ${JSON.stringify(message)} with title ${JSON.stringify(title)}`
-    execFile('/usr/bin/osascript', ['-e', script], error => {
-      if (error) reject(error)
-      else resolve()
-    })
-  })
+const ntfyNotification = async (config, title, message, newEvents) => {
+  const server = process.env.NTFY_SERVER || config.ntfyServer || 'https://ntfy.sh'
+  const topic = process.env.NTFY_TOPIC || config.ntfyTopic
+  const token = process.env.NTFY_TOKEN || config.ntfyToken
 
-const pushbulletNotification = (apiKey, title, url) =>
-  new Promise((resolve, reject) => {
-    const pusher = new PushBullet(apiKey)
-    pusher.link('', title, url, error => {
-      if (error) reject(error)
-      else resolve()
-    })
-  })
+  if (!topic) throw new Error('NTFY_TOPIC is not configured')
 
-const githubIssueNotification = async (title, message, newEvents) => {
-  const token = process.env.GITHUB_TOKEN
-  const repository = process.env.GITHUB_REPOSITORY
-
-  if (!token || !repository) {
-    throw new Error('No notification channel is configured')
-  }
-
-  const eventLines = newEvents.map(event => {
+  const details = newEvents.map(event => {
     const link = bookingLink(event)
-    return `- ${eventDescription(event)}${link ? ` — [koupit vstupenky](${link})` : ''}`
+    return `${eventDescription(event)}${link ? ` ${link}` : ''}`
   })
-  const assignee = process.env.GITHUB_ASSIGNEE
-  const body = {
-    title,
-    body: `${message}\n\n${eventLines.join('\n')}`,
-    ...(assignee ? { assignees: [assignee] } : {})
-  }
-  const response = await fetch(`https://api.github.com/repos/${repository}/issues`, {
+  const response = await fetch(server.replace(/\/$/, ''), {
     method: 'POST',
     headers: {
-      accept: 'application/vnd.github+json',
-      authorization: `Bearer ${token}`,
       'content-type': 'application/json',
-      'user-agent': 'cinema-loader-github-actions',
-      'x-github-api-version': '2022-11-28'
+      ...(token ? { authorization: `Bearer ${token}` } : {})
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify({
+      topic,
+      title,
+      message: `${message}\n\n${details.join('\n')}`,
+      priority: 5,
+      tags: ['ticket', 'movie_camera'],
+      click: bookingLink(newEvents[0]) || config.cinemaLink
+    }),
+    signal: AbortSignal.timeout(15000)
   })
 
   if (!response.ok) {
     const details = await response.text()
-    throw new Error(`GitHub issue notification failed (${response.status}): ${details}`)
+    throw new Error(`ntfy notification failed (${response.status}): ${details}`)
   }
 }
 
@@ -163,27 +153,13 @@ const sendNotification = async (config, newEvents) => {
   const descriptions = newEvents.map(eventDescription)
   const title = config.notificationTitle || 'Cinema City – nový program'
   const message = descriptions.join(', ')
-  const firstLink = bookingLink(newEvents[0]) || config.cinemaLink
-
   console.log(`[${new Date().toISOString()}] ${title}: ${message}`)
   for (const event of newEvents) {
     console.log(`  ${eventDescription(event)} ${bookingLink(event) || ''}`)
   }
 
   if (dryRun) return
-
-  const pushbulletApiKey = process.env.PUSHBULLET_API_KEY || config.pushbulletApiKey
-  if (pushbulletApiKey && pushbulletApiKey !== 'NONE') {
-    await pushbulletNotification(pushbulletApiKey, `${title}: ${message}`, firstLink)
-    return
-  }
-
-  if (process.platform === 'darwin') {
-    await localNotification(title, message)
-    return
-  }
-
-  await githubIssueNotification(title, message, newEvents)
+  await ntfyNotification(config, title, message, newEvents)
 }
 
 const watch = async config => {
@@ -215,6 +191,7 @@ const watch = async config => {
       }
     } catch (error) {
       console.error(`[${new Date().toISOString()}] Check failed:`, error.message)
+      if (runOnce) throw error
     }
 
     if (runOnce) return

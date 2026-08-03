@@ -1,8 +1,7 @@
 # Cinema loader
 
 Thanks to this, I don't need to reload cinema schedule while waiting for
-premiere. When new schedule emerges, it sends a PushBullet or local macOS
-notification.
+premiere. When new schedule emerges, it sends an ntfy notification.
 
 ## Usage
 
@@ -32,7 +31,7 @@ Config structure
     "endDate": "2026-08-31",
     "filmId": "7268s2r",
     "requiredAttributeIds": ["70-mm"],
-    "pushbulletApiKey": "NONE",
+    "ntfyServer": "https://ntfy.sh",
     "cinemaLink": "https://www.cinemacity.cz/films/odyssea/7268s2r#/",
     "refreshInterval": 60,
     "pingInterval": 3600,
@@ -55,8 +54,9 @@ Config structure
 - `filmId` and `requiredAttributeIds` filter the schedule. The example watches
   The Odyssey (`7268s2r`) at Flora (`1052`) in 70 mm IMAX only.
 
-- `pushbulletApiKey` is your Access Token from <https://www.pushbullet.com/#settings>.
-  When it is `NONE`, the loader uses a local macOS notification instead.
+- `ntfyServer` is the ntfy server. Set the topic with the `NTFY_TOPIC`
+  environment variable; an optional access token can be provided as
+  `NTFY_TOKEN`.
 
 - `cinemaLink` will be send as url in pushbullet link
 
@@ -78,9 +78,9 @@ npm start
 ## GitHub Actions
 
 The workflow in `.github/workflows/cinema-watchdog.yml` runs the check every
-15 minutes. It creates an assigned GitHub issue when matching sessions appear.
-If the repository secret `PUSHBULLET_API_KEY` is configured, it sends a
-PushBullet link instead.
+15 minutes at minutes 07, 22, 37, and 52 to avoid GitHub's busiest scheduling
+window. Matching sessions are sent to the ntfy topic stored in the repository
+secret `NTFY_TOPIC`.
 
 The workflow commits `app/watch-state.json` only after a successful
 notification, so the same sessions are not announced again on later runs.

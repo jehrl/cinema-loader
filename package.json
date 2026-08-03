@@ -14,8 +14,5 @@
     "test": "exit 1"
   },
   "devDependencies": {},
-  "dependencies": {
-    "cheerio": "latest",
-    "pushbullet": "^3.0.0"
-  }
+  "dependencies": {}
 }

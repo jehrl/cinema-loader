@@ -6,7 +6,7 @@
     "endDate": "2026-08-31",
     "filmId": "7268s2r",
     "requiredAttributeIds": ["70-mm"],
-    "pushbulletApiKey": "NONE",
+    "ntfyServer": "https://ntfy.sh",
     "cinemaLink": "https://www.cinemacity.cz/films/odyssea/7268s2r#/",
     "notificationTitle": "Odyssea IMAX 70mm – nové termíny",
     "refreshInterval": 60,

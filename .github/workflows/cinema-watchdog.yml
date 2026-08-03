@@ -2,12 +2,11 @@ name: Cinema City watchdog
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
-  issues: write
 
 concurrency:
   group: cinema-city-odyssea-watchdog
@@ -28,17 +27,33 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
-
       - name: Check for new IMAX 70mm sessions
         env:
           RUN_ONCE: "1"
           WATCH_STATE_PATH: app/watch-state.json
-          PUSHBULLET_API_KEY: ${{ secrets.PUSHBULLET_API_KEY }}
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_ASSIGNEE: jehrl
-        run: node app/index.js
+          NTFY_SERVER: https://ntfy.sh
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+        run: |
+          for attempt in 1 2 3; do
+            if node app/index.js; then
+              exit 0
+            fi
+            sleep $((attempt * 20))
+          done
+          exit 1
+
+      - name: Notify if all checker attempts failed
+        if: failure()
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          curl --fail --retry 3 \
+            -H "Title: Cinema watchdog failed" \
+            -H "Priority: high" \
+            -H "Tags: warning" \
+            -d "All three Cinema City checks failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            "https://ntfy.sh/$NTFY_TOPIC"
 
       - name: Persist notified sessions
         run: |
@@ -49,4 +64,19 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/watch-state.json
           git commit -m "chore: remember notified Cinema City sessions"
+          git push
+
+      - name: Keep scheduled workflow enabled
+        if: success() && github.event_name == 'schedule'
+        run: |
+          now=$(date +%s)
+          last_commit=$(git log -1 --format=%ct)
+          if (( now - last_commit < 2592000 )); then
+            exit 0
+          fi
+          date -u +%Y-%m-%dT%H:%M:%SZ > .github/watchdog-keepalive
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/watchdog-keepalive
+          git commit -m "chore: keep Cinema watchdog schedule active"
           git push
