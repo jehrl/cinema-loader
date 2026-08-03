@@ -8,8 +8,8 @@ premiere. When new schedule emerges, it sends an ntfy notification.
 Get the code.
 
 ```shell
-git clone https://github.com/ra100/cinema-loader
-cd cinemacity-loader
+git clone https://github.com/jehrl/cinema-loader
+cd cinema-loader
 npm install
 ```
 
@@ -28,8 +28,10 @@ Config structure
     "id": "odyssea-flora-imax-70mm-after-2026-08-24",
     "url": "https://www.cinemacity.cz/cz/data-api-service/v1/quickbook/10101/film-events/in-cinema/1052/at-date/YYYY-MM-DD?attr=&lang=cs_CZ",
     "startDate": "2026-08-25",
-    "endDate": "2026-08-31",
+    "endDate": "2026-09-17",
     "filmId": "7268s2r",
+    "cinemaId": "1052",
+    "auditoriumTinyName": "IMAX",
     "requiredAttributeIds": ["70-mm"],
     "ntfyServer": "https://ntfy.sh",
     "cinemaLink": "https://www.cinemacity.cz/films/odyssea/7268s2r#/",
@@ -51,8 +53,9 @@ Config structure
 - `url` - Cinema City schedule API. `YYYY-MM-DD` is expanded using
   `startDate` and `endDate`.
 
-- `filmId` and `requiredAttributeIds` filter the schedule. The example watches
-  The Odyssey (`7268s2r`) at Flora (`1052`) in 70 mm IMAX only.
+- `filmId`, `cinemaId`, `auditoriumTinyName`, and `requiredAttributeIds` filter
+  the schedule. The example watches The Odyssey (`7268s2r`) at Flora (`1052`)
+  in 70 mm IMAX only.
 
 - `ntfyServer` is the ntfy server. Set the topic with the `NTFY_TOPIC`
   environment variable; an optional access token can be provided as
@@ -84,3 +87,7 @@ sessions are sent to the ntfy topic stored in the repository secret
 
 The workflow commits `app/watch-state.json` only after a successful
 notification, so the same sessions are not announced again on later runs.
+It validates the Cinema City response format, runs regression tests first, and
+retries transient failures. A manual `end_to_end_test` run uses the known
+24 August schedule, a temporary state file, and sends a real ntfy test without
+changing production deduplication state.

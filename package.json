@@ -5,13 +5,16 @@
   "main": "app/index.js",
   "author": "ra100",
   "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com:ra100/cinema-loader.git"
+    "url": "https://github.com/jehrl/cinema-loader.git"
   },
   "scripts": {
     "start": "node app/index.js",
-    "test": "exit 1"
+    "test": "node --test"
   },
   "devDependencies": {},
   "dependencies": {}

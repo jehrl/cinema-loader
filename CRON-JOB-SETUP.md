@@ -15,7 +15,8 @@ https://github.com/settings/personal-access-tokens/new
 Use these settings:
 
 - Token name: `cron-job.org cinema-loader dispatch`
-- Expiration: shortly after the monitoring period ends
+- Expiration: after the monitoring period ends (for the current configuration,
+  no earlier than 20 September 2026)
 - Resource owner: `jehrl`
 - Repository access: **Only select repositories** → `cinema-loader`
 - Repository permissions: **Actions → Read and write**
@@ -63,13 +64,13 @@ The run should finish successfully in roughly 10 seconds. New Cinema City
 sessions will be published to the ntfy topic configured in the repository
 secret `NTFY_TOPIC`.
 
-Subscribe to the current ntfy topic here:
-
-https://ntfy.sh/cinemacity-odyssea-e82af2cf0c0a9c1e826172a3a9803868
+The ntfy topic is deliberately not written in this public repository. Get it
+from the person who owns the repository and keep it private; anyone who knows a
+public ntfy.sh topic name can subscribe or publish to it.
 
 ## 4. Security and shutdown
 
-- Never put the GitHub token in the repository or the ntfy topic.
+- Never put the GitHub token or the ntfy topic in the repository.
 - Store it only in cron-job.org's custom `Authorization` header.
 - When monitoring is no longer needed, disable the cron job and revoke the
   dedicated token at https://github.com/settings/personal-access-tokens.

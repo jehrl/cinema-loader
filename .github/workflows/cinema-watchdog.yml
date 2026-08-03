@@ -2,6 +2,12 @@ name: Cinema City watchdog
 
 on:
   workflow_dispatch:
+    inputs:
+      end_to_end_test:
+        description: Send a real test notification using the known 24 August schedule
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -17,43 +23,44 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           package-manager-cache: false
 
+      - name: Run regression tests
+        run: npm test
+
       - name: Check for new IMAX 70mm sessions
         env:
+          END_TO_END_TEST: ${{ inputs.end_to_end_test }}
           RUN_ONCE: "1"
-          WATCH_STATE_PATH: app/watch-state.json
           NTFY_SERVER: https://ntfy.sh
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
         run: |
           for attempt in 1 2 3; do
+            if [[ "$END_TO_END_TEST" == "true" ]]; then
+              export WATCH_START_DATE="2026-08-24"
+              export WATCH_END_DATE="2026-08-24"
+              export WATCH_STATE_PATH="$RUNNER_TEMP/cinema-watchdog-test-state.json"
+            else
+              export WATCH_STATE_PATH="app/watch-state.json"
+            fi
             if node app/index.js; then
               exit 0
             fi
+            if [[ "$attempt" == "3" ]]; then
+              exit 1
+            fi
             sleep $((attempt * 20))
           done
-          exit 1
-
-      - name: Notify if all checker attempts failed
-        if: failure()
-        env:
-          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-        run: |
-          curl --fail --retry 3 \
-            -H "Title: Cinema watchdog failed" \
-            -H "Priority: high" \
-            -H "Tags: warning" \
-            -d "All three Cinema City checks failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            "https://ntfy.sh/$NTFY_TOPIC"
 
       - name: Persist notified sessions
+        if: ${{ !inputs.end_to_end_test }}
         run: |
           if git diff --quiet -- app/watch-state.json; then
             exit 0
@@ -63,3 +70,42 @@ jobs:
           git add app/watch-state.json
           git commit -m "chore: remember notified Cinema City sessions"
           git push
+
+      - name: Notify if the workflow failed
+        if: failure()
+        env:
+          NTFY_SERVER: https://ntfy.sh
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+        run: |
+          if [[ -z "$NTFY_TOPIC" ]]; then
+            echo "Cannot send failure notification because NTFY_TOPIC is missing."
+            exit 0
+          fi
+          node <<'NODE'
+          ;(async () => {
+            const server = process.env.NTFY_SERVER.replace(/\/$/, '')
+            const token = process.env.NTFY_TOKEN
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+            const response = await fetch(server, {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                ...(token ? { authorization: `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({
+                topic: process.env.NTFY_TOPIC,
+                title: 'Cinema watchdog failed',
+                message: `The Cinema City check failed: ${runUrl}`,
+                priority: 5,
+                tags: ['warning'],
+                click: runUrl
+              }),
+              signal: AbortSignal.timeout(15000)
+            })
+            if (!response.ok) throw new Error(`ntfy returned HTTP ${response.status}`)
+          })().catch(error => {
+            console.error(error)
+            process.exitCode = 1
+          })
+          NODE
