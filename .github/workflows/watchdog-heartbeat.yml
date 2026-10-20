@@ -1,0 +1,70 @@
+name: Watchdog heartbeat
+
+on:
+  schedule:
+    - cron: "37 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+
+jobs:
+  check-last-success:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Alert when the Cinema City watchdog has not succeeded recently
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAX_AGE_MINUTES: "90"
+          NTFY_SERVER: https://ntfy.sh
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+        run: |
+          node <<'NODE'
+          ;(async () => {
+            const repository = process.env.GITHUB_REPOSITORY
+            const github = `https://api.github.com/repos/${repository}/actions/workflows/cinema-watchdog.yml/runs?status=success&per_page=1`
+            const runsResponse = await fetch(github, {
+              headers: {
+                accept: 'application/vnd.github+json',
+                authorization: `Bearer ${process.env.GH_TOKEN}`
+              },
+              signal: AbortSignal.timeout(15000)
+            })
+            if (!runsResponse.ok) throw new Error(`GitHub returned HTTP ${runsResponse.status}`)
+
+            const [lastRun] = (await runsResponse.json()).workflow_runs
+            const lastSuccess = lastRun ? new Date(lastRun.updated_at) : null
+            const ageMinutes = lastSuccess ? (Date.now() - lastSuccess.getTime()) / 60000 : Infinity
+            console.log(`Last successful watchdog run: ${lastSuccess?.toISOString() || 'never'}`)
+            if (ageMinutes <= Number(process.env.MAX_AGE_MINUTES)) return
+
+            if (!process.env.NTFY_TOPIC) throw new Error('NTFY_TOPIC is not configured')
+            const workflowUrl = `${process.env.GITHUB_SERVER_URL}/${repository}/actions/workflows/cinema-watchdog.yml`
+            const token = process.env.NTFY_TOKEN
+            const response = await fetch(process.env.NTFY_SERVER.replace(/\/$/, ''), {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                ...(token ? { authorization: `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({
+                topic: process.env.NTFY_TOPIC,
+                title: 'Cinema watchdog is not running',
+                message: lastSuccess
+                  ? `No successful Cinema City check for ${Math.round(ageMinutes)} minutes (last: ${lastSuccess.toISOString()}). Check cron-job.org and the GitHub token.\n${workflowUrl}`
+                  : `The Cinema City check has never succeeded.\n${workflowUrl}`,
+                priority: 5,
+                tags: ['warning'],
+                click: workflowUrl
+              }),
+              signal: AbortSignal.timeout(15000)
+            })
+            if (!response.ok) throw new Error(`ntfy returned HTTP ${response.status}`)
+          })().catch(error => {
+            console.error(error)
+            process.exitCode = 1
+          })
+          NODE

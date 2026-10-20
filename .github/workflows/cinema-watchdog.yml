@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       end_to_end_test:
-        description: Send a real test notification using the known 24 August schedule
+        description: Send a real test notification using the known 19 December schedule
         required: false
         type: boolean
         default: false
@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: cinema-city-odyssea-watchdog
+  group: cinema-city-duna-3-watchdog
   cancel-in-progress: false
 
 jobs:
@@ -44,13 +44,13 @@ jobs:
         run: |
           for attempt in 1 2 3; do
             if [[ "$END_TO_END_TEST" == "true" ]]; then
-              export WATCH_START_DATE="2026-08-24"
-              export WATCH_END_DATE="2026-08-24"
+              export WATCH_START_DATE="2026-12-19"
+              export WATCH_END_DATE="2026-12-19"
               export WATCH_STATE_PATH="$RUNNER_TEMP/cinema-watchdog-test-state.json"
             else
               export WATCH_STATE_PATH="app/watch-state.json"
             fi
-            if node app/index.js; then
+            if node app/index.js 2> >(tee -a "$RUNNER_TEMP/cinema-watchdog-error.log" >&2); then
               exit 0
             fi
             if [[ "$attempt" == "3" ]]; then
@@ -87,6 +87,12 @@ jobs:
             const server = process.env.NTFY_SERVER.replace(/\/$/, '')
             const token = process.env.NTFY_TOKEN
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+            const errorLog = `${process.env.RUNNER_TEMP}/cinema-watchdog-error.log`
+            const reason = require('fs').existsSync(errorLog)
+              ? require('fs').readFileSync(errorLog, 'utf8').split('\n')
+                  .filter(line => line.includes('Check failed:')).pop()
+                  ?.replace(/^.*Check failed:\s*/, '').slice(0, 300)
+              : null
             const response = await fetch(server, {
               method: 'POST',
               headers: {
@@ -96,7 +102,7 @@ jobs:
               body: JSON.stringify({
                 topic: process.env.NTFY_TOPIC,
                 title: 'Cinema watchdog failed',
-                message: `The Cinema City check failed: ${runUrl}`,
+                message: `The Cinema City check failed${reason ? `: ${reason}` : ''}\n${runUrl}`,
                 priority: 5,
                 tags: ['warning'],
                 click: runUrl

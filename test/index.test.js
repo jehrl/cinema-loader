@@ -146,6 +146,15 @@ test('loadEvents rejects a malformed matching event instead of silently losing i
   )
 })
 
+test('loadEvents fails when fewer sessions than expected are returned', async () => {
+  const fetchImpl = async () => jsonResponse({ body: { events: [] } })
+  await assert.rejects(
+    loadEvents({ ...config, minExpectedEvents: 1 }, { fetchImpl, attempts: 1 }),
+    /returned 0 matching session\(s\), expected at least 1/
+  )
+  assert.deepEqual(await loadEvents(config, { fetchImpl, attempts: 1 }), [])
+})
+
 test('downloadJson retries transient HTTP failures and then succeeds', async () => {
   let attempts = 0
   const result = await downloadJson('https://cinema.test', {
@@ -304,5 +313,9 @@ test('validateConfig catches missing ntfy and accepts dry runs', () => {
   )
   assert.doesNotThrow(() =>
     validateConfig({ ...config, ntfyTopic: undefined }, { runOnce: true, dryRun: true })
+  )
+  assert.throws(
+    () => validateConfig({ ...config, minExpectedEvents: -1 }, { runOnce: true }),
+    /minExpectedEvents/
   )
 })

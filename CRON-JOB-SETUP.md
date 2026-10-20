@@ -16,7 +16,7 @@ Use these settings:
 
 - Token name: `cron-job.org cinema-loader dispatch`
 - Expiration: after the monitoring period ends (for the current configuration,
-  no earlier than 20 September 2026)
+  no earlier than 1 February 2027)
 - Resource owner: `jehrl`
 - Repository access: **Only select repositories** → `cinema-loader`
 - Repository permissions: **Actions → Read and write**
@@ -28,7 +28,7 @@ Copy the token immediately. GitHub will not show it again.
 
 Open https://console.cron-job.org/jobs/create and enter:
 
-- Title: `Cinema City Odyssea IMAX watchdog`
+- Title: `Cinema City Duna 3 IMAX watchdog`
 - URL:
 
   `https://api.github.com/repos/jehrl/cinema-loader/actions/workflows/cinema-watchdog.yml/dispatches`

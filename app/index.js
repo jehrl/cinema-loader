@@ -71,6 +71,13 @@ const validateConfig = (config, options = {}) => {
     throw new Error(`Invalid ntfy server protocol: ${parsedServer.protocol}`)
   }
 
+  if (
+    config.minExpectedEvents !== undefined &&
+    (!Number.isInteger(config.minExpectedEvents) || config.minExpectedEvents < 0)
+  ) {
+    throw new Error('minExpectedEvents must be a non-negative integer')
+  }
+
   if (!options.runOnce && (!Number.isFinite(config.refreshInterval) || config.refreshInterval <= 0)) {
     throw new Error('refreshInterval must be a positive number')
   }
@@ -151,6 +158,15 @@ const loadEvents = async (config, options = {}) => {
       throw new Error('Unexpected matching event schema from Cinema City')
     }
     uniqueEvents.set(eventFingerprint(event), event)
+  }
+
+  // An empty but well-formed response usually means the API changed or stopped
+  // serving the schedule, so it must fail loudly instead of looking like "no news".
+  const minExpectedEvents = config.minExpectedEvents || 0
+  if (uniqueEvents.size < minExpectedEvents) {
+    throw new Error(
+      `Cinema City returned ${uniqueEvents.size} matching session(s), expected at least ${minExpectedEvents}`
+    )
   }
 
   return [...uniqueEvents.values()].sort((left, right) =>

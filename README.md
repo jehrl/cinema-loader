@@ -25,16 +25,17 @@ Config structure
 ```json
 [
   {
-    "id": "odyssea-flora-imax-70mm-after-2026-08-24",
+    "id": "duna-3-flora-imax-70mm",
     "url": "https://www.cinemacity.cz/cz/data-api-service/v1/quickbook/10101/film-events/in-cinema/1052/at-date/YYYY-MM-DD?attr=&lang=cs_CZ",
-    "startDate": "2026-08-25",
-    "endDate": "2026-09-17",
-    "filmId": "7268s2r",
+    "startDate": "2026-12-15",
+    "endDate": "2027-01-31",
+    "filmId": "8105s2r",
     "cinemaId": "1052",
     "auditoriumTinyName": "IMAX",
     "requiredAttributeIds": ["70-mm"],
+    "minExpectedEvents": 1,
     "ntfyServer": "https://ntfy.sh",
-    "cinemaLink": "https://www.cinemacity.cz/films/odyssea/7268s2r#/",
+    "cinemaLink": "https://www.cinemacity.cz/films/duna-cast-treti/8105s2r#/",
     "refreshInterval": 60,
     "pingInterval": 3600,
     "type": "cinemaCity"
@@ -54,8 +55,12 @@ Config structure
   `startDate` and `endDate`.
 
 - `filmId`, `cinemaId`, `auditoriumTinyName`, and `requiredAttributeIds` filter
-  the schedule. The example watches The Odyssey (`7268s2r`) at Flora (`1052`)
+  the schedule. The example watches Dune: Part Three (`8105s2r`) at Flora (`1052`)
   in 70 mm IMAX only.
+
+- `minExpectedEvents` makes the check fail when fewer matching sessions are
+  returned, so an API that silently stops serving the schedule triggers an
+  alert instead of looking like "nothing new".
 
 - `ntfyServer` is the ntfy server. Set the topic with the `NTFY_TOPIC`
   environment variable; an optional access token can be provided as
@@ -89,5 +94,11 @@ The workflow commits `app/watch-state.json` only after a successful
 notification, so the same sessions are not announced again on later runs.
 It validates the Cinema City response format, runs regression tests first, and
 retries transient failures. A manual `end_to_end_test` run uses the known
-24 August schedule, a temporary state file, and sends a real ntfy test without
+19 December schedule, a temporary state file, and sends a real ntfy test without
 changing production deduplication state.
+
+When a check fails (HTTP errors, a changed response format, or fewer sessions
+than `minExpectedEvents`), the workflow sends an ntfy alert with the error.
+`.github/workflows/watchdog-heartbeat.yml` runs hourly on GitHub's own
+scheduler and sends an alert when the watchdog has not succeeded for 90
+minutes, which covers cron-job.org stopping or an expired dispatch token.
